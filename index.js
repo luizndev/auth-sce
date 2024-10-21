@@ -139,6 +139,7 @@ app.get("/api/exportar", async (req, res) => {
   res.download("estagiarios.csv");
 });
 
+
 // Rota para remover estagiário
 app.delete("/api/estagiarios/:id", async (req, res) => {
   const { id } = req.params;
