@@ -146,8 +146,8 @@ app.delete("/api/estagiarios/:id", async (req, res) => {
   res.sendStatus(204);
 });
 
-app.listen(3000, () => {
-  console.log("Servidor rodando na porta 3000");
+app.listen(80, () => {
+  console.log("Servidor rodando na porta 80");
 });
 
 // Open Route
