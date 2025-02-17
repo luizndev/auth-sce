@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors"); // Importando o cors
+const cors = require("cors");
 const Estagiario = require("./models/Estagiario");
 const bodyParser = require("body-parser");
 const fs = require("fs");
@@ -9,101 +9,98 @@ const { Parser } = require("json2csv");
 
 const app = express();
 
-// Habilitando o CORS
+// Habilitando o CORS e Body Parser
 app.use(cors());
-
 app.use(bodyParser.json());
 app.use(express.static("frontend"));
 
 // Conexão ao MongoDB
 mongoose
   .connect(
-    `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_CLUSTER_URL}/${process.env.MONGO_DATABASE}?retryWrites=true&w=majority`,
-    { useNewUrlParser: true, useUnifiedTopology: true }
+    `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_CLUSTER_URL}/${process.env.MONGO_DATABASE}?retryWrites=true&w=majority`
   )
-  .then(() => console.log("Conectado ao MongoDB"))
-  .catch((err) => console.log("Erro ao conectar ao MongoDB: " + err));
+  .then(() => console.log("✅ Conectado ao MongoDB"))
+  .catch((err) => console.error("❌ Erro ao conectar ao MongoDB:", err));
 
 // Rota para cadastrar estagiário
 app.post("/api/estagiarios", async (req, res) => {
-  const { nome, email } = req.body;
-  const novoEstagiario = new Estagiario({ nome, email, horas: [] });
-  await novoEstagiario.save();
-  res.json(novoEstagiario);
-});
+  try {
+    const { nome, email } = req.body;
+    if (!nome || !email) {
+      return res.status(400).json({ message: "Nome e email são obrigatórios." });
+    }
 
-// Rota para obter estagiário por ID (incluindo horas)
-app.get("/api/estagiarios/:id", async (req, res) => {
-  const { id } = req.params;
-  const estagiario = await Estagiario.findById(id);
-  res.json(estagiario);
+    const novoEstagiario = new Estagiario({ nome, email, horas: [] });
+    await novoEstagiario.save();
+    res.status(201).json(novoEstagiario);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erro ao cadastrar estagiário." });
+  }
 });
 
 // Rota para listar estagiários
 app.get("/api/estagiarios", async (req, res) => {
-  const estagiarios = await Estagiario.find();
-  res.json(estagiarios);
-});
-
-// Rota para obter horas de um estagiário por ID
-app.get("/api/estagiarios/:id/horas", async (req, res) => {
-  const { id } = req.params;
-  const estagiario = await Estagiario.findById(id);
-
-  if (!estagiario) {
-    return res.status(404).json({ message: "Estagiário não encontrado." });
-  }
-
-  res.json(estagiario.horas); // Retorna apenas as horas
-});
-
-// Rota para adicionar horas
-app.post("/api/estagiarios/:id/horas", async (req, res) => {
-  const { id } = req.params;
-  const { data, horaInicio, horaFim } = req.body; // Corrigido para horaInicio e horaFim
-
-  // Verificar se todos os campos foram preenchidos
-  if (!data || !horaInicio || !horaFim) {
-    return res.status(400).json({
-      message: "Todos os campos (data, horaInicio, horaFim) são obrigatórios.",
-    });
-  }
-
   try {
+    const estagiarios = await Estagiario.find();
+    res.json(estagiarios);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erro ao buscar estagiários." });
+  }
+});
+
+// Rota para obter estagiário por ID (incluindo horas)
+app.get("/api/estagiarios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const estagiario = await Estagiario.findById(id);
+    if (!estagiario) {
+      return res.status(404).json({ message: "Estagiário não encontrado." });
+    }
+    res.json(estagiario);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erro ao buscar estagiário." });
+  }
+});
+
+// Rota para adicionar horas ao estagiário
+app.post("/api/estagiarios/:id/horas", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, horaInicio, horaFim } = req.body;
+
+    if (!data || !horaInicio || !horaFim) {
+      return res.status(400).json({
+        message: "Todos os campos (data, horaInicio, horaFim) são obrigatórios.",
+      });
+    }
+
     const estagiario = await Estagiario.findById(id);
     if (!estagiario) {
       return res.status(404).json({ message: "Estagiário não encontrado." });
     }
 
-    // Calcular o total de horas
+    // Convertendo datas e calculando total de minutos
     const inicioDate = new Date(`${data}T${horaInicio}`);
     const fimDate = new Date(`${data}T${horaFim}`);
-    const totalMinutos = (fimDate - inicioDate) / (1000 * 60); // Diferença em minutos
 
-    // Verificar se o tempo trabalhado é válido
-    if (totalMinutos < 0) {
-      return res
-        .status(400)
-        .json({ message: "O horário de fim deve ser maior que o de início." });
+    if (inicioDate >= fimDate) {
+      return res.status(400).json({ message: "O horário de fim deve ser maior que o de início." });
     }
 
-    // Determinar o turno
+    const totalMinutos = (fimDate - inicioDate) / (1000 * 60);
     const turno = inicioDate.getHours() < 12 ? "manhã" : "tarde";
 
-    // Verificar se já existe uma carga horária para o mesmo dia e turno
+    // Verificando se já há um registro no mesmo dia e turno
     const hasEntry = estagiario.horas.some((hora) => {
-      const existingDate = new Date(`${hora.data}T${hora.horaInicio}`);
-      return (
-        hora.data === data && // Verifica se a data é a mesma
-        (turno === "manhã"
-          ? existingDate.getHours() < 12
-          : existingDate.getHours() >= 13) // Verifica o turno
-      );
+      return hora.data === data && ((turno === "manhã" && hora.horaInicio < "12:00") || (turno === "tarde" && hora.horaInicio >= "13:00"));
     });
 
     if (hasEntry) {
       return res.status(400).json({
-        message: `Já existe uma carga horária registrada para o turno ${turno} neste dia.`,
+        message: `Já existe um registro de horas para o turno ${turno} deste dia.`,
       });
     }
 
@@ -111,47 +108,59 @@ app.post("/api/estagiarios/:id/horas", async (req, res) => {
     await estagiario.save();
 
     res.status(201).json(estagiario);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Erro ao adicionar horas." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erro ao registrar horas." });
   }
 });
 
+// Rota para exportar os dados como CSV
 app.get("/api/exportar", async (req, res) => {
-  const estagiarios = await Estagiario.find();
-  const dataToExport = estagiarios.map((estagiario) => {
-    const totalHoras = estagiario.horas.reduce(
-      (total, hora) => total + (hora.total || 0),
-      0
-    ); // Soma total de minutos
-    return {
-      nome: estagiario.nome,
-      email: estagiario.email,
-      totalHoras: Math.floor(totalHoras / 60), // Total em horas
-      totalMinutos: totalHoras % 60, // Minutos restantes
-    };
-  });
+  try {
+    const estagiarios = await Estagiario.find();
+    const dataToExport = estagiarios.map((estagiario) => {
+      const totalHoras = estagiario.horas.reduce((total, hora) => total + (hora.total || 0), 0);
+      return {
+        nome: estagiario.nome,
+        email: estagiario.email,
+        totalHoras: Math.floor(totalHoras / 60),
+        totalMinutos: totalHoras % 60,
+      };
+    });
 
-  const json2csvParser = new Parser();
-  const csv = json2csvParser.parse(dataToExport);
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(dataToExport);
 
-  fs.writeFileSync("estagiarios.csv", csv);
-  res.download("estagiarios.csv");
+    fs.writeFileSync("estagiarios.csv", csv);
+    res.download("estagiarios.csv");
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erro ao exportar CSV." });
+  }
 });
-
 
 // Rota para remover estagiário
 app.delete("/api/estagiarios/:id", async (req, res) => {
-  const { id } = req.params;
-  await Estagiario.findByIdAndDelete(id);
-  res.sendStatus(204);
+  try {
+    const { id } = req.params;
+    const deleted = await Estagiario.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Estagiário não encontrado." });
+    }
+    res.sendStatus(204);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erro ao remover estagiário." });
+  }
 });
 
-app.listen(80, () => {
-  console.log("Servidor rodando na porta 80");
-});
-
-// Open Route
+// Rota principal
 app.get("/", (req, res) => {
-  res.status(200).json({ message: "Bem vindo a api" });
+  res.status(200).json({ message: "Bem-vindo à API" });
+});
+
+// Iniciando o servidor
+const PORT = process.env.PORT || 80;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
