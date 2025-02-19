@@ -17,7 +17,7 @@ app.use(express.static("frontend"));
 // Conexão ao MongoDB
 mongoose
   .connect(
-    `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_CLUSTER_URL}/${process.env.MONGO_DATABASE}?retryWrites=true&w=majority`
+    mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_CLUSTER_URL}/${process.env.MONGO_DATABASE}?retryWrites=true&w=majority
   )
   .then(() => console.log("✅ Conectado ao MongoDB"))
   .catch((err) => console.error("❌ Erro ao conectar ao MongoDB:", err));
@@ -83,8 +83,8 @@ app.post("/api/estagiarios/:id/horas", async (req, res) => {
     }
 
     // Convertendo as horas e calculando o total de minutos
-    const inicioDate = new Date(`${data}T${horaInicio}:00`);
-    const fimDate = new Date(`${data}T${horaFim}:00`);
+    const inicioDate = new Date(${data}T${horaInicio}:00);
+    const fimDate = new Date(${data}T${horaFim}:00);
 
     if (inicioDate >= fimDate) {
       return res.status(400).json({ message: "O horário de fim deve ser maior que o de início." });
@@ -97,12 +97,12 @@ app.post("/api/estagiarios/:id/horas", async (req, res) => {
 
     // Verificando se já existe uma entrada para o mesmo dia e turno
     const hasEntry = estagiario.horas.some((hora) => {
-      return hora.data === data && ((turno === "manhã" && new Date(`${data}T${hora.horaInicio}`).getHours() < 12) || (turno === "tarde" && new Date(`${data}T${hora.horaInicio}`).getHours() >= 12));
+      return hora.data === data && ((turno === "manhã" && new Date(${data}T${hora.horaInicio}).getHours() < 12) || (turno === "tarde" && new Date(${data}T${hora.horaInicio}).getHours() >= 12));
     });
 
     if (hasEntry) {
       return res.status(400).json({
-        message: `Já existe um registro de horas para o turno ${turno} deste dia.`,
+        message: Já existe um registro de horas para o turno ${turno} deste dia.,
       });
     }
 
@@ -158,31 +158,6 @@ app.delete("/api/estagiarios/:id", async (req, res) => {
   }
 });
 
-// Rota para remover um registro de hora
-app.delete('/api/estagiarios/:id/horas/:horaId', async (req, res) => {
-  const { id, horaId } = req.params;
-  
-  try {
-    const estagiario = await Estagiario.findById(id);
-    
-    if (!estagiario) {
-      return res.status(404).send('Estagiário não encontrado');
-    }
-    
-    // Filtrando as horas e removendo a hora específica
-    estagiario.horas = estagiario.horas.filter(hora => hora._id.toString() !== horaId);
-    
-    // Salvando a atualização
-    await estagiario.save();
-    
-    res.status(200).json(estagiario);
-  } catch (error) {
-    console.error('Erro ao remover hora:', error);
-    res.status(500).send('Erro ao remover hora');
-  }
-});
-
-
 // Rota principal
 app.get("/", (req, res) => {
   res.status(200).json({ message: "Bem-vindo à API" });
@@ -191,5 +166,5 @@ app.get("/", (req, res) => {
 // Iniciando o servidor
 const PORT = process.env.PORT || 80;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(🚀 Servidor rodando na porta ${PORT});
 });
