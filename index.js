@@ -158,6 +158,31 @@ app.delete("/api/estagiarios/:id", async (req, res) => {
   }
 });
 
+// Rota para remover um registro de hora
+app.delete('/api/estagiarios/:id/horas/:horaId', async (req, res) => {
+  const { id, horaId } = req.params;
+  
+  try {
+    const estagiario = await Estagiario.findById(id);
+    
+    if (!estagiario) {
+      return res.status(404).send('Estagiário não encontrado');
+    }
+    
+    // Filtrando as horas e removendo a hora específica
+    estagiario.horas = estagiario.horas.filter(hora => hora._id.toString() !== horaId);
+    
+    // Salvando a atualização
+    await estagiario.save();
+    
+    res.status(200).json(estagiario);
+  } catch (error) {
+    console.error('Erro ao remover hora:', error);
+    res.status(500).send('Erro ao remover hora');
+  }
+});
+
+
 // Rota principal
 app.get("/", (req, res) => {
   res.status(200).json({ message: "Bem-vindo à API" });
