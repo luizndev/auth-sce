@@ -92,19 +92,8 @@ app.post("/api/estagiarios/:id/horas", async (req, res) => {
 
     const totalMinutos = (fimDate - inicioDate) / (1000 * 60); // Conversão de milissegundos para minutos
 
-    // Definindo o turno baseado na hora de início
-    const turno = inicioDate.getHours() < 12 ? "manhã" : "tarde";
-
-    // Verificando se já existe uma entrada para o mesmo dia e turno
-    const hasEntry = estagiario.horas.some((hora) => {
-      return hora.data === data && ((turno === "manhã" && new Date(`${data}T${hora.horaInicio}`).getHours() < 12) || (turno === "tarde" && new Date(`${data}T${hora.horaInicio}`).getHours() >= 12));
-    });
-
-    if (hasEntry) {
-      return res.status(400).json({
-        message: `Já existe um registro de horas para o turno ${turno} deste dia.`,
-      });
-    }
+    // Removendo a verificação do turno e limitador de horário
+    // Não há mais verificação de turno para manhã/tarde
 
     // Adicionando o novo registro de horas
     estagiario.horas.push({ data, horaInicio, horaFim, total: totalMinutos });
@@ -116,7 +105,6 @@ app.post("/api/estagiarios/:id/horas", async (req, res) => {
     res.status(500).json({ message: "Erro ao registrar horas." });
   }
 });
-
 
 // Rota para exportar os dados como CSV
 app.get("/api/exportar", async (req, res) => {
